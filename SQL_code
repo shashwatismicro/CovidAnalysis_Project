@@ -1,0 +1,90 @@
+SELECT Location, date, total_cases, new_cases, total_deaths, population
+FROM `covidanalysis-2718.Covid_db.CovidDeaths`
+WHERE continent IS NOT NULL
+ORDER BY 1, 2;
+
+#Looking at total cases vs total deaths
+#Chances of dying due to covid in India
+
+SELECT location, date, total_cases, total_deaths, (total_deaths/total_cases)*100 as DeathPercentage
+FROM `covidanalysis-2718.Covid_db.CovidDeaths`
+WHERE location = 'India' AND
+total_cases IS NOT NULL AND total_deaths IS NOT NULL
+AND continent IS NOT NULL
+ORDER BY 1, 2;
+
+#Looking at total cases vs population
+#Shows the percentage of population that got Covid
+
+SELECT location, date, population, total_cases, (total_cases/population)*100 as InfectedPercentage
+FROM `covidanalysis-2718.Covid_db.CovidDeaths`
+WHERE 
+location = 'India' AND
+total_cases IS NOT NULL AND total_deaths IS NOT NULL
+AND continent IS NOT NULL
+ORDER BY 1, 2;
+
+#Countries with highest infection rate
+
+SELECT location, population, MAX(total_cases) AS HighestInfectionCount, MAX(total_cases/population)*100 as InfectedPercentage
+FROM `covidanalysis-2718.Covid_db.CovidDeaths`
+WHERE 
+continent IS NOT NULL AND
+total_cases IS NOT NULL AND total_deaths IS NOT NULL
+GROUP BY 1, 2
+ORDER BY InfectedPercentage DESC;
+
+#Countries with highest death count
+
+SELECT location, MAX(total_deaths) AS TotalDeaths
+FROM `covidanalysis-2718.Covid_db.CovidDeaths`
+WHERE continent IS NOT NULL
+AND total_cases IS NOT NULL AND total_deaths IS NOT NULL
+GROUP BY 1
+ORDER BY TotalDeaths DESC;
+
+#Continents with highest death counts
+
+SELECT continent, MAX(total_deaths) AS TotalDeaths
+FROM `covidanalysis-2718.Covid_db.CovidDeaths`
+WHERE continent IS NOT NULL
+AND total_cases IS NOT NULL AND total_deaths IS NOT NULL
+GROUP BY 1
+ORDER BY TotalDeaths DESC;
+
+#Death percentage globally with Time
+
+SELECT date, SUM(new_cases) AS total_cases, SUM(new_deaths) AS total_deaths, (SUM(new_deaths)/NULLIF(SUM(new_cases), 0))*100 as DeathPercentage
+FROM `covidanalysis-2718.Covid_db.CovidDeaths`
+WHERE
+continent IS NOT NULL AND new_cases IS NOT NULL AND new_deaths IS NOT NULL
+GROUP BY date
+ORDER BY 1, 2;
+
+#Comparing covid_death and population data with vaccination by joining vaccination table
+
+SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations, SUM(vac.new_vaccinations) OVER(PARTITION BY dea.location ORDER BY dea.location, dea.date) Vaccinated
+FROM `covidanalysis-2718.Covid_db.CovidDeaths` dea
+JOIN `covidanalysis-2718.Covid_db.CovidVaccine` vac
+ON dea.location = vac.location
+AND dea.date = vac.date
+WHERE dea.continent IS NOT NULL AND vac.new_vaccinations IS NOT NULL
+ORDER BY 2, 3;
+
+#Using CTE to create a temporary table and find the percentage of people vaccinated at different locations. Also finding the total percentage of people vaccinated in India.
+
+WITH popVSvac AS (
+SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations, SUM(vac.new_vaccinations) OVER(PARTITION BY dea.location ORDER BY dea.location, dea.date) Vaccinated
+  FROM `covidanalysis-2718.Covid_db.CovidDeaths` dea
+  JOIN `covidanalysis-2718.Covid_db.CovidVaccine` vac
+  ON dea.location = vac.location
+  AND dea.date = vac.date
+  WHERE dea.continent IS NOT NULL AND vac.new_vaccinations IS NOT NULL
+)
+
+SELECT *,(Vaccinated/population)*100 Percent_vaccinated
+FROM popVSvac;
+--WHERE location = 'India'
+--ORDER BY Percent_vaccinated DESC
+
+--------------------------------------------------------------------
